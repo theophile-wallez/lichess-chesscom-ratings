@@ -1,0 +1,16 @@
+{
+ "dumpPlayers": 603335,
+ "established": 375084,
+ "lookedUp": 376444,
+ "onChesscom": 185686,
+ "active": 47389,
+ "lichessProfiles": 47005,
+ "linked": 371,
+ "pairs": {
+  "bullet": 8285,
+  "blitz": 16728,
+  "rapid": 9974,
+  "classical": 528,
+  "correspondence": 62
+ }
+}

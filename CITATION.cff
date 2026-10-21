@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: If you use this data or this conversion, please cite it as below.
+title: What is a Lichess rating worth on Chess.com? An empirical conversion
+type: dataset
+authors:
+  - family-names: Wallez
+    given-names: Théophile
+repository-code: https://github.com/theophile-wallez/lichess-chesscom-ratings
+url: https://theophile-wallez.github.io/lichess-chesscom-ratings/
+license: CC-BY-4.0
+version: 1.0.0
+date-released: 2026-10-21
+keywords:
+  - chess
+  - rating
+  - Lichess
+  - Chess.com
+  - Glicko
+  - mixture model

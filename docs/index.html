@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What is a Lichess rating worth on Chess.com?</title>
+<meta name="description" content="An empirical conversion from Lichess ratings to Chess.com ratings, fitted on tens of thousands of players with established ratings on both sites.">
+<meta property="og:title" content="What is a Lichess rating worth on Chess.com?">
+<meta property="og:description" content="An empirical conversion fitted on tens of thousands of players who play on both sites, with the method, the maths and the data.">
+<meta property="og:image" content="https://theophile-wallez.github.io/lichess-chesscom-ratings/preview.png">
+<meta name="theme-color" content="#111110">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+" crossorigin="anonymous">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" integrity="sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" integrity="sha384-43gviWU0YVjaDtb/GhzOouOXtZMP/7XUzwPTstBeZFe/+rCMvRwr4yROQP43s0Xk" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="page">
+  <nav class="top"><div class="wide">
+    <a class="brand" href="#">Lichess → Chess.com</a>
+    <a href="#answer">Results</a>
+    <a href="#data">Data</a>
+    <a href="#namesakes">Namesakes</a>
+    <a href="#model">Model</a>
+    <a href="#speeds">By speed</a>
+    <a href="#checks">Checks</a>
+    <a href="#limits">Limits</a>
+    <a href="#reproduce">Data &amp; code</a>
+  </div></nav>
+
+  <header class="hero wide">
+    <p class="kicker">An empirical study · <span data-value="fittedMonth"></span></p>
+    <h1>What is a Lichess rating<br>worth on Chess.com?</h1>
+    <p class="lede">A conversion fitted on <b data-value="pairsTotal"></b> rating pairs from players with established
+      ratings on both sites, through a model that tells a player who uses the same username on both sites from a
+      stranger who happens to share it.</p>
+
+    <div class="card converter" id="converter">
+      <div class="controls">
+        <div class="label">Lichess speed</div>
+        <div class="segmented" id="speed-picker" role="group" aria-label="Speed"></div>
+        <div class="label" style="margin-top:22px">Lichess rating</div>
+        <div class="rating-row"><input type="number" id="rating-input" min="400" max="3000" step="10" value="1500" aria-label="Lichess rating"></div>
+        <input type="range" id="rating-slider" min="400" max="3000" step="10" value="1500" aria-label="Lichess rating">
+      </div>
+      <div class="answer" aria-live="polite">
+        <div class="label" id="answer-label">Chess.com rating</div>
+        <div class="big" id="answer-value"></div>
+        <div class="meter" id="answer-meter"><div class="iqr"></div><div class="dot"></div></div>
+        <div class="range" id="answer-range"></div>
+      </div>
+    </div>
+    <div class="tiles" id="tiles"></div>
+  </header>
+
+  <section class="column" id="answer">
+    <h2><span class="num">1</span>The short answer</h2>
+    <p>Below about 2000, the same player is rated lower on Chess.com than on Lichess, by several hundred points for
+      beginners. The gap narrows as players get stronger, and in blitz it closes, then reverses at the top. A Lichess
+      rating is a Chess.com rating plus a gap that depends on the speed and the level: there is no single offset.</p>
+  </section>
+  <div class="wide figure">
+    <div class="grid-2">
+      <div class="card"><h3>Chess.com rating for each Lichess rating</h3>
+        <div class="legend" id="curves-legend"></div><div class="chart" id="chart-curves"></div></div>
+      <div class="card"><h3>The gap: Chess.com minus Lichess</h3>
+        <div class="legend" id="gap-legend"></div><div class="chart" id="chart-gap"></div></div>
+    </div>
+    <p class="caption">Each curve is drawn where at least 25 players stand within 100 points of it. Lichess's classical
+      is compared with Chess.com's rapid, where those games are played. The faint band around each curve is the 95%
+      bootstrap interval of the curve itself.</p>
+  </div>
+  <div class="wide figure card">
+    <h3>The conversion table</h3>
+    <p class="muted">The Chess.com rating of a Lichess rating, and ± the half range in which the middle half of
+      players stand. Also as <a href="https://github.com/theophile-wallez/lichess-chesscom-ratings/blob/main/data/conversion.csv">CSV</a>
+      and <a href="https://github.com/theophile-wallez/lichess-chesscom-ratings/blob/main/data/conversion.json">JSON</a>.</p>
+    <div class="table-wrap" id="table-conversion"></div>
+  </div>
+
+  <section class="column" id="data">
+    <h2><span class="num">2</span>The data</h2>
+    <p>Neither site says who has an account on the other, so the pairs have to be found. The collection started from
+      Lichess's <a href="https://database.lichess.org">open database</a> and asked both sites' public APIs about each
+      player, at a polite pace. It ran for about nine hours on 20 and 21 October 2026.</p>
+    <ol>
+      <li><b>Players with a settled rating.</b> A slice of September 2026's dump of rated games (the first 800 MB of
+        the compressed file) names <span data-value="collection.dumpPlayers"></span> players. A player is kept in a
+        speed when they played at least three games in it and their rating moved by 20 points or less in the median
+        game: a provisional rating moves by 30 or more.</li>
+      <li><b>The same username on Chess.com.</b> Each was looked up on Chess.com's
+        <a href="https://www.chess.com/news/view/published-data-api">published-data API</a>, in a random order,
+        until every one had been. An account counts as active with at least 20 games in a speed, the last one in the
+        past 180 days.</li>
+      <li><b>Their Lichess profile.</b> For each active match, Lichess's user API gave the current ratings (only
+        those that aren't provisional, with an RD under 110), the flag, and a link to a Chess.com account if the
+        profile has one. Closed accounts and those marked for a terms-of-service violation are left out.</li>
+      <li><b>The pairs.</b> A pair is one speed in which both ratings rest on at least 100 games, with a Chess.com RD
+        of at most 90 and a last Chess.com game in the 90 days before the collection ended. Players with hundreds of
+        games on one site and a few dozen on the other aren't at their level on both yet, so the floor is on both
+        sides.</li>
+    </ol>
+  </section>
+  <div class="column figure card">
+    <h3>From the dump to the pairs</h3>
+    <div class="funnel" id="funnel"></div>
+    <p class="caption">A player can make up to four pairs, one per speed. The <span data-value="collection.linked"></span>
+      Lichess profiles that link to a Chess.com account were matched to that account rather than to the same name.
+      <span data-value="leftOut"></span> correspondence pairs (Chess.com's daily) were too few to fit.</p>
+  </div>
+  <section class="column">
+    <p>The speeds don't quite match. Both sites class a game by its estimated length, the base time plus 40 times
+      the increment, but they cut at different lengths: Lichess's blitz ends at 8 minutes, and Chess.com's at 10. So a
+      10+0 game is rapid on Lichess and on Chess.com, but an 8+0 game is rapid on Lichess and blitz on Chess.com.</p>
+  </section>
+
+  <section class="column" id="namesakes">
+    <h2><span class="num">3</span>The namesake problem</h2>
+    <p>Most pairs are found through a shared username, and a username isn't a person: <i>alex</i> on Lichess and
+      <i>alex</i> on Chess.com are often two different people. Their two ratings then have nothing to do with each
+      other, and they pull any plain average toward the middle of the Chess.com ratings. That's what a straight
+      least-squares line, or the median Chess.com rating at each Lichess rating, does here: both flatten the curve at
+      both ends.</p>
+    <p>Dropping the pairs that look wrong would bias the answer toward what we expect. Keeping only pairs whose
+      profile links to the other account would leave too few of them, as only <span data-value="collection.linked"></span>
+      profiles do. So the model below keeps every pair, and lets each one be, with some probability, a stranger.</p>
+  </section>
+  <div class="wide figure card">
+    <div class="panel-head"><h3>Blitz: three ways to read the same pairs</h3><span class="muted" id="naive-note"></span></div>
+    <div class="legend" id="naive-legend"></div>
+    <div class="chart" id="chart-naive"></div>
+    <p class="caption">Each dot is a pair (a random sample of 3,000), its opacity the probability, under the model,
+      that both accounts are the same player. The pale cloud spread over the whole square is the namesakes.</p>
+  </div>
+  <div class="wide figure">
+    <div class="grid-4" id="weights"></div>
+    <p class="caption">How sure the model is of each pair, per speed: most pairs are clearly one player (right) or
+      clearly two (left), with few in between.</p>
+  </div>
+
+  <section class="column" id="model">
+    <h2><span class="num">4</span>The model</h2>
+    <p>Each speed is fitted on its own. Its pairs are \((x_i, y_i, g_i)\) for \(i = 1, \dots, n\): the Lichess rating
+      \(x_i\), the Chess.com rating \(y_i\), and the kind of pair \(g_i\), which is one of these:</p>
+    <dl class="defs">
+      <dt>link</dt><dd>the Lichess profile links to the Chess.com account;</dd>
+      <dt>same-country</dt><dd>the same username, and both profiles name the same country;</dd>
+      <dt>other-country</dt><dd>the same username, and the two profiles name different countries;</dd>
+      <dt>no-country</dt><dd>the same username, and at least one profile names no country.</dd>
+    </dl>
+
+    <h3>A mixture of the same player and a stranger</h3>
+    <p>Let \(z_i = 1\) when both accounts belong to the same player. The chance of that depends only on the kind of
+      pair, \(\Pr(z_i = 1) = \pi_{g_i}\). The same player's Chess.com rating is spread normally around a curve
+      \(f\) of their Lichess rating, with a spread \(\sigma\) that may change along it. A stranger's Chess.com rating
+      has nothing to do with \(x_i\): it is drawn from \(b\), the distribution of Chess.com ratings among the
+      accounts found.</p>
+    <div class="math-block">$$
+      y_i \mid z_i = 1 \;\sim\; \mathcal N\!\bigl(f(x_i),\, \sigma(x_i)^2\bigr),
+      \qquad
+      y_i \mid z_i = 0 \;\sim\; b .
+    $$</div>
+    <p>Not knowing \(z_i\), each pair's likelihood is the mixture of the two,</p>
+    <div class="math-block">$$
+      p(y_i \mid x_i, g_i) \;=\; \pi_{g_i}\,\frac{1}{\sigma(x_i)}\,\varphi\!\left(\frac{y_i - f(x_i)}{\sigma(x_i)}\right)
+      \;+\; \bigl(1 - \pi_{g_i}\bigr)\, b(y_i),
+    $$</div>
+    <p>where \(\varphi\) is the standard normal density. The shares \(\pi_g\) can be told apart from the curve because
+      strangers don't follow it: pairs far from the curve, at any Lichess rating, say how many strangers there are.</p>
+
+    <h3>A curve that can only rise</h3>
+    <p>A stronger player on Lichess is not expected to be weaker on Chess.com, so \(f\) is kept non-decreasing. It is
+      piecewise linear on knots \(t_k = t_0 + kh\), every \(h = 100\) points, from \(t_0\), the 0.5th percentile of the
+      \(x_i\) rounded down to a hundred, to \(t_K\), the 99.5th rounded up. Its values at the knots are built from
+      free parameters \(\alpha, \beta_1, \dots, \beta_K\) as</p>
+    <div class="math-block">$$
+      c_0 = \alpha, \qquad c_k = c_{k-1} + h\,\operatorname{softplus}(\beta_k),
+      \qquad \operatorname{softplus}(u) = \log\bigl(1 + e^{u}\bigr),
+    $$</div>
+    <p>so its slope on each piece, \(\operatorname{softplus}(\beta_k)\), is always positive, with no constraint on the
+      optimizer. Outside \([t_0, t_K]\) the curve stays flat, and the table leaves those ratings out anyway.</p>
+    <p>The spread is piecewise linear too, on coarser knots \(s_j\) every 400 points, through
+      \(\sigma(s_j) = e^{\gamma_j}\), which keeps it positive. The shares go through a logistic,
+      \(\pi_g = 1 / (1 + e^{-\delta_g})\).</p>
+
+    <h3>The strangers' distribution</h3>
+    <p>\(b\) is the speed's Chess.com ratings \(y_1, \dots, y_n\), binned in 25-point bins over \([0, 3600)\), with half
+      a count added to each bin, smoothed by a Gaussian kernel with a standard deviation of 4 bins (100 points)
+      truncated at 8, and normalized so that \(\int b = 1\). This assumes a namesake is like any account found by a
+      name. Strictly, the \(y_i\) also hold the true pairs' ratings, but smoothing their marginal changes little to
+      a density as broad as \(b\).</p>
+
+    <h3>The fit</h3>
+    <p>All parameters \(\theta = (\alpha, \beta, \gamma, \delta)\) minimize the negative log-likelihood, plus a penalty
+      on the curve's second differences that lets it bend only where the data asks:</p>
+    <div class="math-block">$$
+      \hat\theta \;=\; \arg\min_\theta \; -\sum_{i=1}^{n} \log p(y_i \mid x_i, g_i)
+      \;+\; \lambda \sum_{k=1}^{K-1} \left(\frac{c_{k+1} - 2c_k + c_{k-1}}{h}\right)^{\!2},
+      \qquad \lambda = 2 .
+    $$</div>
+    <p>The minimum is found by L-BFGS-B, started from the least-squares line \(y = a x + c\): \(\alpha = a t_0 + c\),
+      every \(\beta_k = \operatorname{softplus}^{-1}(\max(a, 0.2))\), \(\sigma = 150\) and \(\pi_g = \tfrac12\).</p>
+
+    <h3>Which pairs are the same player</h3>
+    <p>Once fitted, Bayes's rule gives each pair's probability of being the same player,</p>
+    <div class="math-block">$$
+      w_i \;=\; \Pr(z_i = 1 \mid x_i, y_i, g_i) \;=\;
+      \frac{\pi_{g_i}\, \sigma(x_i)^{-1} \varphi\bigl((y_i - f(x_i)) / \sigma(x_i)\bigr)}{p(y_i \mid x_i, g_i)},
+    $$</div>
+    <p>and \(\sum_i w_i\) is the expected number of true pairs. This \(w_i\) is the
+      <code>same_player_probability</code> column of the published data.</p>
+
+    <h3>From the curve to the table</h3>
+    <p>The table gives, every 50 points, \(f(r)\) and a spread read off the players themselves rather than off
+      \(\sigma\). Let \(N(r) = \{ i : |x_i - r| \le 100 \}\) and \(e_i = y_i - f(x_i)\). A row is kept only if
+      \(\sum_{i \in N(r)} w_i \ge 25\), and its spread is half the interquartile range of the \(e_i\) in \(N(r)\), each
+      weighted by \(w_i\):</p>
+    <div class="math-block">$$
+      s(r) \;=\; \tfrac12\Bigl(Q^{w}_{0.75}\bigl(\{e_i\}_{i \in N(r)}\bigr) - Q^{w}_{0.25}\bigl(\{e_i\}_{i \in N(r)}\bigr)\Bigr).
+    $$</div>
+    <p>So half the players of a Lichess rating \(r\) stand between \(f(r) - s(r)\) and \(f(r) + s(r)\) on Chess.com.
+      For a normal spread \(s = 0.674\,\sigma\), but \(s\) doesn't rely on the normal shape.</p>
+
+    <h3>How sure the curve is</h3>
+    <p>The curve's uncertainty comes from a nonparametric bootstrap: <span data-value="bootstraps"></span> times, \(n\)
+      pairs are drawn with replacement from the speed's \(n\), and the model is fitted again, on the same knots, from
+      \(\hat\theta\). The 2.5th and 97.5th percentiles of the refitted curves, at each rating, bound the 95% band drawn
+      around the curves. That band measures the noise of the sample only. It doesn't cover a bias in who is in it (see
+      the limits).</p>
+    <div class="note-box">The curve estimates \(\mathbb E[y \mid x]\): the Chess.com rating of a player of a given
+      Lichess rating. Read backward, it does not give the Lichess rating of a player of a given Chess.com rating. With
+      spreads of 100 to 200 points, the two regressions differ, most at the ends, where the curve's inverse
+      overshoots. A Chess.com-to-Lichess table needs its own fit, the roles of \(x\) and \(y\) swapped.</div>
+  </section>
+
+  <section class="column" id="speeds">
+    <h2><span class="num">5</span>Speed by speed</h2>
+    <p>The fitted curve over each speed's pairs. The band around it holds the middle half of the players, and the ringed
+      dots are the pairs whose Lichess profile links to the Chess.com account: the only ones known to be one player.
+      Hover a chart to read it.</p>
+  </section>
+  <div class="wide figure grid-2" id="panels"></div>
+  <div class="wide figure card">
+    <h3>The share of same players, by kind of pair</h3>
+    <p class="muted">\(\hat\pi_g\) and its 95% bootstrap interval. The country is a strong clue: two accounts with the
+      same name and the same flag are almost always one player, two accounts with different flags often aren't.</p>
+    <div class="chart" id="chart-shares"></div>
+  </div>
+
+  <section class="column" id="checks">
+    <h2><span class="num">6</span>Checks</h2>
+    <h3>The pairs known to be one player</h3>
+    <p>The model never sees which pairs are links, except through \(\pi_{\text{link}}\). If its curve held for every
+      player, the linked pairs would sit around it: a median gap near zero, and about half of them within \(\pm s\).
+      They don't quite. In bullet and blitz, they sit about 30 points above the curve, more than chance gives, while the
+      other kinds of pairs sit on it.</p>
+  </section>
+  <div class="wide figure card"><div class="table-wrap" id="table-links"></div>
+    <p class="caption">The median gap of the linked pairs to the curve, with its 95% bootstrap interval, and the share
+      of them within the table's \(\pm s\). The other kinds of pairs are shown for comparison, each pair weighted by
+      \(w_i\).</p></div>
+
+  <section class="column">
+    <h3>Players rate higher where they play more</h3>
+    <p>Across all pairs, the gap to the curve follows the number of games played on Chess.com. Two players with the
+      same Lichess rating don't have the same Chess.com rating if one has played 200 games there and the other 5,000:
+      the second is rated higher, by 75 to 115 points. Games played on Lichess matter much less: players with few of
+      them stand 15 to 20 points above the curve, and the others on it.</p>
+    <p>That fits what one would expect. A rating rises as a player gets used to a site's pool, its clocks and its
+      opponents, and a player still climbing hasn't caught up with their level yet. The curve is an average over the
+      sample's mix of players: one who plays mostly on Lichess can expect a Chess.com rating below the table's, and one
+      who plays mostly on Chess.com, above it.</p>
+    <p>That doesn't explain the linked pairs, though: they have about the same mix of games as the others, which
+      predicts a gap of a few points, not 30. Their gap grows with the rating instead (in blitz, +6 below 1500, +25 from
+      1500 to 2000, +54 above). It may come from who links their accounts: at the top, often streamers and titled
+      players, whose main site is Chess.com. With fewer than 200 linked pairs per speed, that's a lead rather than a
+      finding.</p>
+  </section>
+  <div class="wide figure">
+    <div class="grid-2">
+      <div class="card"><h3>Gap to the curve, by games on Chess.com</h3><div class="legend" id="exp-legend-chesscom"></div><div class="chart" id="chart-exp-chesscom"></div></div>
+      <div class="card"><h3>Gap to the curve, by games on Lichess</h3><div class="legend" id="exp-legend-lichess"></div><div class="chart" id="chart-exp-lichess"></div></div>
+    </div>
+    <p class="caption">Each dot is the median gap \(y_i - f(x_i)\) of a speed's pairs in a range of games played,
+      each pair weighted by \(w_i\), with its 95% bootstrap interval. Ranges with fewer than 30 pairs are left out.</p>
+  </div>
+
+  <section class="column">
+    <h3>More games, same curve</h3>
+    <p>The floor of 100 games on each site is a choice. Fitting again on the pairs with at least 250 games on both
+      sites, then 1,000, keeps fewer and more seasoned players. If the curve moved much, the floor would be shaping
+      the answer. From 250 games, it hardly moves: a few points in blitz, at most 16 elsewhere. From 1,000, it rises
+      by 10 to 20 points over most of the range, as the players' experience on Chess.com, shown above, predicts.</p>
+  </section>
+  <div class="wide figure">
+    <div class="grid-4" id="sensitivity"></div>
+    <p class="caption">The refitted curve minus the main one, for each Lichess rating. The shaded band is the main
+      curve's 95% bootstrap interval, centered on zero.</p>
+  </div>
+
+  <section class="column">
+    <h3>Is the spread normal?</h3>
+    <p>The model assumes a player's Chess.com rating is spread normally around the curve. The standardized gaps
+      \((y_i - f(x_i)) / \sigma(x_i)\), each pair weighted by \(w_i\), should then follow the standard normal. They
+      do, closely: 69.5% of the weight is within one \(\sigma\) (68.3% for the normal), and the tails are a little
+      heavier, 0.35% beyond three \(\sigma\) against 0.27%.</p>
+  </section>
+  <div class="wide figure">
+    <div class="grid-4" id="residuals"></div>
+    <p class="caption">Bars: the weighted standardized gaps. Line: the standard normal density.</p>
+  </div>
+
+  <section class="column" id="limits">
+    <h2><span class="num">7</span>Limits</h2>
+    <ul>
+      <li><b>Who is in the sample.</b> The pairs are players who kept the same username, or linked their accounts,
+        and play enough on both sites. They may not be typical of either site's players. The conversion is for
+        players like them.</li>
+      <li><b>Experience.</b> At the same Lichess rating, players with more games on Chess.com are rated higher there
+        (see the checks). The table is an average over this sample's mix of players, not a prediction for each.</li>
+      <li><b>One direction.</b> The table converts a Lichess rating into a Chess.com one. The other way round needs
+        its own fit (see the note at the end of the model).</li>
+      <li><b>A snapshot.</b> Both sites' ratings drift as their pools change. This fit is for October 2026, and a later
+        one can be made by collecting again.</li>
+      <li><b>Speeds that don't match.</b> The speeds cut at different game lengths, and Lichess's classical is compared
+        with Chess.com's rapid. So a classical rating says less about a Chess.com one than the other speeds do.</li>
+      <li><b>The namesakes' distribution.</b> \(b\) assumes a stranger's Chess.com rating doesn't depend on the
+        Lichess player's. If a username like <i>magnus_fan</i> drew players of one level on both sites, some
+        namesakes would pass for the same player.</li>
+      <li><b>The ends of the scale.</b> Where few players stand, at the very bottom and the very top, there is no row:
+        the curve there would be a guess.</li>
+    </ul>
+  </section>
+
+  <section class="column" id="reproduce">
+    <h2><span class="num">8</span>Data and code</h2>
+    <p>Everything is on <a href="https://github.com/theophile-wallez/lichess-chesscom-ratings">GitHub</a>, and each
+      release attaches the data as files.</p>
+    <ul>
+      <li><a href="https://github.com/theophile-wallez/lichess-chesscom-ratings/blob/main/data/pairs.csv"><code>data/pairs.csv</code></a>:
+        the <span data-value="pairsAll"></span> pairs, one per row. No usernames, countries or dates; games
+        played in ranges; rows shuffled.</li>
+      <li><code>data/conversion.csv</code> and <code>data/conversion.json</code>: the table.</li>
+      <li><code>analysis/</code>: the model and the analysis, which start from <code>pairs.csv</code> alone.</li>
+      <li><code>collection/</code>: the collection scripts. Their raw output names the players, so it isn't published.</li>
+    </ul>
+    <p>To fit everything again from the published pairs (Python 3 with numpy and scipy, a few minutes):</p>
+    <pre><code>git clone https://github.com/theophile-wallez/lichess-chesscom-ratings
+cd lichess-chesscom-ratings
+pip install -r analysis/requirements.txt
+python3 analysis/analyze.py</code></pre>
+    <p>The code is under the MIT license, the data under
+      <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. This study was made for
+      <a href="https://github.com/theophile-wallez/LichessNeo">Lichess Neo</a>, a browser extension that can show a
+      Lichess rating's Chess.com equivalent. It is not affiliated with Lichess or Chess.com.</p>
+    <footer>Fitted on <span data-value="fittedDay"></span> · <a href="https://github.com/theophile-wallez/lichess-chesscom-ratings/issues">Questions and corrections</a></footer>
+  </section>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
