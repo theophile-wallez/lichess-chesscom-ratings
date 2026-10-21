@@ -49,7 +49,7 @@ const range = (from, to, step) => Array.from({ length: Math.floor((to - from) / 
 function frame(box, { aspect = 0.62, margin = {}, x, y, xTicks, yTicks, xTitle, yTitle, xFormat = nf.format, yFormat = nf.format, xGrid = true }) {
   box.querySelector('svg')?.remove();
   const W = Math.max(260, box.clientWidth), H = Math.round(Math.min(560, Math.max(190, W * aspect)));
-  const m = { l: 50, r: 14, t: 10, b: xTitle ? 44 : 28, ...margin };
+  const m = { l: yTitle ? 64 : 50, r: 14, t: 10, b: xTitle ? 44 : 28, ...margin };
   const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img' });
   box.prepend(svg);
   const X = v => m.l + ((v - x[0]) / (x[1] - x[0])) * (W - m.l - m.r);
