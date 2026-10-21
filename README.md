@@ -59,8 +59,6 @@ fewer than 25 players stand within 100 points of it.
 
 ## The data
 
-<img src="docs/figures/funnel.png" width="560" align="right" alt="From the dump to the pairs: 603,335 players, 47,005 found on both sites, 35,577 pairs">
-
 Neither site says who has an account on the other, so the pairs have to be found.
 
 1. **Players with a settled rating**, from a slice of Lichess's
@@ -75,7 +73,7 @@ Neither site says who has an account on the other, so the pairs have to be found
 [`data/pairs.csv`](data/pairs.csv) holds the 35,577 pairs, with no usernames, countries or dates
 ([codebook](data/README.md)).
 
-<br clear="right">
+<p align="center"><img src="docs/figures/funnel.png" width="640" alt="From the dump to the pairs: 603,335 players, 47,005 found on both sites, 35,577 pairs"></p>
 
 ## The namesake problem
 
@@ -106,7 +104,7 @@ p(y_i \mid x_i, g_i) \;=\; \pi_{g_i}\,\frac{1}{\sigma(x_i)}\,\varphi\!\left(\fra
 softplus, so always positive:
 
 ```math
-c_0 = \alpha, \qquad c_k = c_{k-1} + h\,\operatorname{softplus}(\beta_k), \qquad \operatorname{softplus}(u) = \log\bigl(1 + e^{u}\bigr)
+c_0 = \alpha, \qquad c_k = c_{k-1} + h\,\mathrm{softplus}(\beta_k), \qquad \mathrm{softplus}(u) = \log\bigl(1 + e^{u}\bigr)
 ```
 
 The spread $\sigma$ is piecewise linear on knots every 400 points, through $e^{\gamma_j}$, and the shares go through a
