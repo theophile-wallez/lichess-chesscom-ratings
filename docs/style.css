@@ -45,7 +45,8 @@ nav.top {
 nav.top .wide { display: flex; align-items: center; gap: 22px; height: 52px; overflow-x: auto; scrollbar-width: none; }
 nav.top a { color: var(--text-secondary); text-decoration: none; font-size: 14px; white-space: nowrap; }
 nav.top a:hover { color: var(--text-primary); }
-nav.top .brand { color: var(--text-primary); font-weight: 650; margin-right: auto; }
+nav.top .brand { color: var(--text-primary); font-weight: 650; margin-right: auto; display: inline-flex; align-items: center; gap: 9px; }
+nav.top .brand img { width: 24px; height: 24px; border-radius: 22%; flex: none; }
 
 .hero { padding: 72px 0 28px; }
 .kicker { color: var(--text-muted); font-size: 13.5px; letter-spacing: 0.06em; text-transform: uppercase; margin: 0 0 12px; }
