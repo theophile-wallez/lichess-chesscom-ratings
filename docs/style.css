@@ -60,7 +60,7 @@ p { margin: 12px 0; }
 .muted { color: var(--text-muted); font-size: 13.5px; }
 .byline { color: var(--text-muted); font-size: 14px; margin-top: 22px; }
 
-.card { background: var(--surface-1); border-radius: var(--radius); padding: 20px 22px; box-shadow: 0 0 0 1px var(--grid) inset; }
+.card { position: relative; background: var(--surface-1); border-radius: var(--radius); padding: 20px 22px; box-shadow: 0 0 0 1px var(--grid) inset; }
 .card h3 { margin-top: 0; font-size: 16px; }
 .figure { margin: 26px auto; }
 .figure .caption { color: var(--text-muted); font-size: 13.5px; margin: 10px 2px 0; }
@@ -126,6 +126,21 @@ input[type='range'] { width: 100%; margin-top: 14px; accent-color: var(--accent)
 .panel-head h3 { margin: 0; }
 .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
 .badge { font-size: 12px; padding: 2px 9px; border-radius: 999px; box-shadow: 0 0 0 1px var(--grid) inset; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+/* Copying a figure as an image */
+.card.exportable > h3, .card.exportable > .panel-head { padding-right: 70px; }
+.figure-tools { position: absolute; top: 11px; right: 12px; z-index: 2; display: flex; gap: 2px; opacity: 0; transition: opacity 0.15s; }
+.card:hover .figure-tools, .figure-tools:focus-within { opacity: 1; }
+@media (hover: none) { .figure-tools { opacity: 1; } }
+.figure-tools button {
+  display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 8px;
+  background: none; color: var(--text-muted); cursor: pointer;
+}
+.figure-tools button:hover { color: var(--text-primary); background: var(--surface-2); }
+.figure-tools button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.figure-tools button.done { color: var(--series-3); }
+.figure-tools button.failed { color: var(--series-2); }
+.figure-tools svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 /* Tables */
 .table-wrap { overflow-x: auto; }

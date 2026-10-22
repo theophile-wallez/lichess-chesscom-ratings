@@ -266,10 +266,10 @@ function conversionTable() {
 
 // ---- 2. The data ----
 
-function funnel() {
+function funnelSteps() {
   const c = results.collection;
   const pairs = Object.values(c.pairs).reduce((a, b) => a + b, 0);
-  const steps = [
+  return [
     [c.dumpPlayers, 'Players in the dump’s slice', 'September 2026, rated games'],
     [c.established, 'With a settled rating', 'in at least one speed'],
     [c.lookedUp, 'Usernames looked up on Chess.com', 'with those of a pilot run'],
@@ -278,9 +278,15 @@ function funnel() {
     [c.lichessProfiles, 'Settled on both sites', 'their Lichess profile read'],
     [pairs, 'Rating pairs kept', SPEEDS.map(s => `${s.name.toLowerCase()} ${nf.format(c.pairs[s.key])}`).join(', ')],
   ];
+}
+
+// The longest bar leaves room for its count: 80% of the track at most.
+const funnelWidth = count => (count / Math.max(results.collection.dumpPlayers, results.collection.lookedUp)) * 80;
+
+function funnel() {
+  const steps = funnelSteps();
   document.getElementById('funnel').innerHTML = steps.map(([count, name, note], i) => {
-    // The longest bar leaves room for its count.
-    const width = (count / Math.max(c.dumpPlayers, c.lookedUp)) * 80;
+    const width = funnelWidth(count);
     return `<div class="step"><div class="name">${name}${note ? `<small>${note}</small>` : ''}</div>
       <div class="track"><div class="bar${i === steps.length - 1 ? ' pairs' : ''}" style="width:${width}%"></div>
       <span class="count" style="left:calc(${width}% + 8px)">${nf.format(count)}</span></div></div>`;
@@ -353,13 +359,16 @@ function niceTicks(max, count) {
   return range(0, max, step);
 }
 
-function smallMultiples(id, draw) {
+// `subject` names what the small multiples show, for a card's exported image, where its
+// speed-only heading would stand alone.
+function smallMultiples(id, subject, draw) {
   const parent = document.getElementById(id);
   parent.innerHTML = '';
   // Every card is in before any is drawn: a chart is drawn at its box's width.
   const cards = SPEEDS.filter(speed => results.speeds[speed.key]).map(speed => {
     const card = document.createElement('div');
     card.className = 'card';
+    card.dataset.exportTitle = `${subject} · ${speed.name}`;
     card.innerHTML = `<h3>${speed.name}</h3><div class="chart"></div>`;
     parent.append(card);
     return [speed, card];
@@ -368,7 +377,7 @@ function smallMultiples(id, draw) {
 }
 
 function weightCharts() {
-  smallMultiples('weights', (box, speed, fit) => smallHistogram(box, {
+  smallMultiples('weights', 'How sure the model is of each pair', (box, speed, fit) => smallHistogram(box, {
     bins: fit.weights, from: 0, step: 0.05, color: speed.color, xTicks: [0, 0.5, 1], xFormat: v => pct.format(v),
     tipFor: (i, value) => `<b>${nf.format(value)}</b> pairs<div class="muted">${pct.format(i * 0.05)} to ${pct.format((i + 1) * 0.05)} likely one player</div>`,
   }));
@@ -489,7 +498,7 @@ function experienceChart(side) {
 }
 
 function sensitivityCharts() {
-  smallMultiples('sensitivity', (box, speed, fit, card) => {
+  smallMultiples('sensitivity', 'The curve refitted on the pairs with more games', (box, speed, fit, card) => {
     const points = covered(fit), index = new Map(fit.curve.map((c, i) => [c[0], i]));
     const floors = Object.entries(fit.sensitivity);
     card.querySelector('h3').insertAdjacentHTML('afterend', `<div class="legend">${floors.map(([floor, s], i) =>
@@ -519,7 +528,7 @@ function sensitivityCharts() {
 
 function residualCharts() {
   const normal = range(-4, 4, 0.05).map(z => [z, Math.exp(-0.5 * z * z) / Math.sqrt(2 * Math.PI)]);
-  smallMultiples('residuals', (box, speed, fit) => {
+  smallMultiples('residuals', 'The standardized gaps against the normal', (box, speed, fit) => {
     const total = fit.residuals.reduce((a, b) => a + b, 0);
     const density = fit.residuals.map(v => v / total / 0.25);
     smallHistogram(box, {
@@ -532,6 +541,279 @@ function residualCharts() {
     });
   });
 }
+
+// ---- Copying and downloading a figure as an image ----
+
+// An exported figure carries no stylesheet, so it is drawn with its own fonts, its own copies of
+// style.css's chart rules, and the page's custom properties resolved into it.
+const EXPORT_FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+const EXPORT_VARS = ['--surface-1', '--text-primary', '--text-secondary', '--text-muted', '--grid', '--axis'];
+const EXPORT_PAD = 22;
+const ICONS = {
+  copy: '<rect x="8.5" y="8.5" width="12" height="12" rx="2.5"/><path d="M15.5 6.5v-1a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h1"/>',
+  download: '<path d="M12 3.5v11"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M4 20.5h16"/>',
+  done: '<path d="m4.5 12.5 5 5 10-11"/>',
+  failed: '<path d="M6 6l12 12M18 6 6 18"/>',
+};
+
+const measureText = (() => {
+  const ctx = document.createElement('canvas').getContext('2d');
+  return (text, font) => { ctx.font = font; return ctx.measureText(text).width; };
+})();
+
+function wrapText(text, font, width) {
+  const lines = [];
+  let line = '';
+  for (const word of text.split(/\s+/)) {
+    const next = line ? `${line} ${word}` : word;
+    if (line && measureText(next, font) > width) { lines.push(line); line = word; }
+    else line = next;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+// A var() or color-mix() colour, as the browser resolves it on the page: an SVG read as an image
+// has no access to the page's custom properties.
+const resolveColor = (() => {
+  const cache = new Map();
+  let probe;
+  return value => {
+    if (!value || !/var\(|color-mix\(/.test(value)) return value;
+    if (cache.has(value)) return cache.get(value);
+    if (!probe) {
+      probe = document.createElement('span');
+      probe.style.display = 'none';
+      document.body.append(probe);
+    }
+    probe.style.color = '';
+    probe.style.color = value;
+    const resolved = getComputedStyle(probe).color;
+    cache.set(value, resolved);
+    return resolved;
+  };
+})();
+
+function resolveColors(svg) {
+  for (const node of svg.querySelectorAll('[fill], [stroke]')) {
+    for (const name of ['fill', 'stroke']) {
+      const value = node.getAttribute(name);
+      if (value) node.setAttribute(name, resolveColor(value));
+    }
+  }
+}
+
+function exportCss() {
+  const root = getComputedStyle(document.documentElement);
+  const vars = EXPORT_VARS.map(name => `${name}:${root.getPropertyValue(name).trim()}`).join(';');
+  // The chart rules mirror style.css; the rest styles the frame drawn around the chart.
+  return `:root{${vars}}
+    text{font-family:${EXPORT_FONT}}
+    svg{overflow:visible}
+    .grid-line{stroke:var(--grid);stroke-dasharray:3 4}
+    .axis-line{stroke:var(--axis)}
+    .tick{fill:var(--text-muted);font-size:11px}
+    .axis-title{fill:var(--text-secondary);font-size:11.5px}
+    .direct{fill:var(--text-secondary);font-size:12px}
+    .head{fill:var(--text-primary);font-size:15px;font-weight:650}
+    .note{fill:var(--text-muted);font-size:12.5px}
+    .key{fill:var(--text-secondary);font-size:13px}
+    .step{fill:var(--text-secondary);font-size:14px}
+    .count{fill:var(--text-primary);font-size:13.5px}`;
+}
+
+// The card's legend, read off the page: each mark is a swatch to draw again in the image.
+function legendItems(card) {
+  return [...card.querySelectorAll('.legend span')].map(item => {
+    const mark = item.querySelector('i');
+    const label = item.textContent.trim();
+    if (!mark) return { shape: 'none', label };
+    const style = getComputedStyle(mark);
+    const gradient = style.backgroundImage === 'none' ? null : style.backgroundImage.match(/rgba?\([^)]+\)/)?.[0];
+    const shape = mark.classList.contains('dot') ? 'dot' : mark.classList.contains('ring') ? 'ring'
+      : mark.classList.contains('band') ? 'band' : gradient ? 'dash' : 'line';
+    return {
+      shape, label,
+      color: shape === 'ring' ? resolveColor('var(--text-primary)') : gradient || style.backgroundColor,
+      opacity: Number(style.opacity) || 1,
+    };
+  }).filter(item => item.label);
+}
+
+function drawLegend(parent, items, left, top, width) {
+  const font = `13px ${EXPORT_FONT}`;
+  let x = left, y = top, rows = 1;
+  for (const { shape, color, label, opacity } of items) {
+    const needed = 16 + 7 + measureText(label, font);
+    if (x > left && x + needed > left + width) { x = left; y += 20; rows++; }
+    const middle = y + 8;
+    if (shape === 'dot' || shape === 'ring') {
+      el('circle', {
+        cx: x + 6, cy: middle, r: 4.5, fill: shape === 'ring' ? 'none' : color,
+        stroke: shape === 'ring' ? color : 'none', 'stroke-width': 2,
+      }, parent);
+    } else if (shape === 'band') {
+      el('rect', { x, y: middle - 5, width: 16, height: 10, rx: 2, fill: color, 'fill-opacity': opacity }, parent);
+    } else if (shape === 'dash') {
+      el('line', { x1: x, x2: x + 16, y1: middle, y2: middle, stroke: color, 'stroke-width': 3, 'stroke-dasharray': '4 3' }, parent);
+    } else if (shape === 'line') {
+      el('rect', { x, y: middle - 1.5, width: 16, height: 3, rx: 1.5, fill: color }, parent);
+    }
+    el('text', { x: x + 23, y: middle + 4.5, class: 'key' }, parent).textContent = label;
+    x += needed + 18;
+  }
+  return rows * 20;
+}
+
+// The funnel is HTML on the page, so the image gets its own drawing of the same steps.
+function funnelSvg(width) {
+  const nameWidth = Math.max(170, Math.min(280, width * 0.32));
+  const trackLeft = nameWidth + 14, trackWidth = width - trackLeft;
+  const nameFont = `14px ${EXPORT_FONT}`, noteFont = `12.5px ${EXPORT_FONT}`;
+  const steps = funnelSteps();
+  let height = 0;
+  const rows = steps.map(([count, name, note], i) => {
+    const lines = wrapText(name, nameFont, nameWidth);
+    const notes = note ? wrapText(note, noteFont, nameWidth) : [];
+    const row = { count, lines, notes, top: height, last: i === steps.length - 1 };
+    row.height = Math.max(26, lines.length * 18 + notes.length * 16);
+    height += row.height + 9;
+    return row;
+  });
+  height -= 9;
+  const svg = el('svg', { width, height, viewBox: `0 0 ${width} ${height}` });
+  for (const row of rows) {
+    let y = row.top + (row.height - (row.lines.length * 18 + row.notes.length * 16)) / 2;
+    for (const line of row.lines) { el('text', { x: 0, y: y + 13, class: 'step' }, svg).textContent = line; y += 18; }
+    for (const line of row.notes) { el('text', { x: 0, y: y + 11, class: 'note' }, svg).textContent = line; y += 16; }
+    const bar = Math.max(3, (funnelWidth(row.count) / 100) * trackWidth), top = row.top + (row.height - 26) / 2;
+    const r = Math.min(4, bar);
+    el('path', {
+      d: `M${trackLeft},${top}h${bar - r}a${r},${r} 0 0 1 ${r},${r}v${26 - 2 * r}a${r},${r} 0 0 1 ${-r},${r}h${-(bar - r)}z`,
+      fill: row.last ? 'var(--series-2)' : 'var(--series-1)',
+    }, svg);
+    el('text', { x: trackLeft + bar + 8, y: top + 17.5, class: 'count' }, svg).textContent = nf.format(row.count);
+  }
+  return svg;
+}
+
+// The card's chart, with its heading and legend, as a standalone SVG on an opaque background.
+function figureSvg(card) {
+  const chart = card.querySelector('.chart svg')?.cloneNode(true)
+    ?? funnelSvg(Math.max(540, Math.round(card.clientWidth - 44)));
+  resolveColors(chart);
+  const width = Number(chart.getAttribute('width')), height = Number(chart.getAttribute('height'));
+  const title = card.dataset.exportTitle || card.querySelector('h3')?.textContent.trim() || 'Figure';
+  const note = card.querySelector('.panel-head .muted')?.textContent.trim();
+
+  const svg = el('svg', {});
+  el('style', {}, svg).textContent = exportCss();
+  const background = el('rect', { x: 0, y: 0, width: width + EXPORT_PAD * 2, fill: resolveColor('var(--surface-1)') }, svg);
+  let y = EXPORT_PAD;
+  for (const line of wrapText(title, `650 15px ${EXPORT_FONT}`, width)) {
+    el('text', { x: EXPORT_PAD, y: y + 13, class: 'head' }, svg).textContent = line;
+    y += 21;
+  }
+  if (note) {
+    el('text', { x: EXPORT_PAD, y: y + 11, class: 'note' }, svg).textContent = note;
+    y += 19;
+  }
+  y += 8;
+  const items = legendItems(card);
+  if (items.length) y += drawLegend(svg, items, EXPORT_PAD, y, width) + 4;
+
+  chart.setAttribute('x', EXPORT_PAD);
+  chart.setAttribute('y', y);
+  chart.removeAttribute('role');
+  svg.append(chart);
+  const W = width + EXPORT_PAD * 2, H = Math.round(y + height + EXPORT_PAD);
+  for (const [name, value] of [['width', W], ['height', H], ['viewBox', `0 0 ${W} ${H}`]]) svg.setAttribute(name, value);
+  background.setAttribute('height', H);
+  return { svg, width: W, height: H, title };
+}
+
+// Rasterized at twice the size, so the image stays sharp on a dense screen.
+async function figurePng(card, scale = 2) {
+  const { svg, width, height, title } = figureSvg(card);
+  const text = `<?xml version="1.0" encoding="UTF-8"?>${new XMLSerializer().serializeToString(svg)}`;
+  const url = URL.createObjectURL(new Blob([text], { type: 'image/svg+xml;charset=utf-8' }));
+  try {
+    const image = new Image();
+    image.src = url;
+    await image.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(width * scale);
+    canvas.height = Math.round(height * scale);
+    canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((resolve, reject) =>
+      canvas.toBlob(b => (b ? resolve(b) : reject(new Error('the canvas gave no image'))), 'image/png'));
+    const name = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 64);
+    return { blob, name: `${name || 'figure'}.png` };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function flash(button, icon, title) {
+  const mark = button.querySelector('svg');
+  const [wasIcon, wasTitle] = [mark.innerHTML, button.title];
+  mark.innerHTML = ICONS[icon];
+  button.classList.add(icon);
+  if (title) button.title = title;
+  setTimeout(() => {
+    mark.innerHTML = wasIcon;
+    button.classList.remove(icon);
+    button.title = wasTitle;
+  }, 1600);
+}
+
+async function figureAction(button, card) {
+  if (button.dataset.figure === 'download') {
+    const { blob, name } = await figurePng(card);
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = name;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  } else {
+    // Safari keeps the click's permission to write only if the item is built from a promise.
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': figurePng(card).then(png => png.blob) })]);
+  }
+}
+
+const figureTool = (action, label) => `<button type="button" data-figure="${action}" title="${label}" aria-label="${label}">
+  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">${ICONS[action]}</svg></button>`;
+
+// Every card holding a chart gets the two buttons. Charts are drawn again on resize, so the
+// cards rebuilt then are given theirs back.
+function figureTools() {
+  for (const card of document.querySelectorAll('.card')) {
+    if (!card.querySelector('.chart svg') && !card.querySelector('#funnel')) continue;
+    card.classList.add('exportable');
+    if (card.querySelector('.figure-tools')) continue;
+    const tools = document.createElement('div');
+    tools.className = 'figure-tools';
+    tools.innerHTML = figureTool('copy', 'Copy as image') + figureTool('download', 'Download as image');
+    card.prepend(tools);
+  }
+}
+
+document.addEventListener('click', async event => {
+  const button = event.target.closest('.figure-tools [data-figure]');
+  if (!button) return;
+  button.disabled = true;
+  try {
+    await figureAction(button, button.closest('.card'));
+    flash(button, 'done');
+  } catch (error) {
+    console.error(error);
+    flash(button, 'failed', button.dataset.figure === 'copy'
+      ? 'Copying an image isn’t available in this browser — download it instead'
+      : 'The image could not be made');
+  } finally {
+    button.disabled = false;
+  }
+});
 
 // ---- Putting it together ----
 
@@ -555,6 +837,7 @@ function drawCharts() {
   experienceChart('lichess');
   sensitivityCharts();
   residualCharts();
+  figureTools();
 }
 
 async function main() {
