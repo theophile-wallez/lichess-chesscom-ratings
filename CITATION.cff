@@ -6,7 +6,7 @@ authors:
   - family-names: Wallez
     given-names: Théophile
 repository-code: https://github.com/theophile-wallez/lichess-chesscom-ratings
-url: https://theophile-wallez.github.io/lichess-chesscom-ratings/
+url: https://elo.lichessneo.com/
 license: CC-BY-4.0
 version: 1.0.0
 date-released: 2026-10-21

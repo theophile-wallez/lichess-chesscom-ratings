@@ -1,7 +1,7 @@
 # The data
 
 Collected on 20 and 21 October 2026 from Lichess's open database and the two
-sites' public APIs (see the [paper](https://theophile-wallez.github.io/lichess-chesscom-ratings/#data)).
+sites' public APIs (see the [paper](https://elo.lichessneo.com/#data)).
 Under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 ## `pairs.csv`

@@ -10,14 +10,14 @@
 </p>
 
 <p align="center">
-  <a href="https://theophile-wallez.github.io/lichess-chesscom-ratings/"><img alt="Read the paper" src="https://img.shields.io/badge/paper-read%20online-3987e5?style=for-the-badge"></a>
+  <a href="https://elo.lichessneo.com/"><img alt="Read the paper" src="https://img.shields.io/badge/paper-read%20online-3987e5?style=for-the-badge"></a>
   <a href="https://github.com/theophile-wallez/lichess-chesscom-ratings/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/theophile-wallez/lichess-chesscom-ratings?style=for-the-badge&color=199e70"></a>
   <a href="data/README.md"><img alt="Data: CC BY 4.0" src="https://img.shields.io/badge/data-CC%20BY%204.0-d95926?style=for-the-badge"></a>
   <a href="LICENSE"><img alt="Code: MIT" src="https://img.shields.io/badge/code-MIT-c98500?style=for-the-badge"></a>
 </p>
 
 <p align="center">
-  <a href="https://theophile-wallez.github.io/lichess-chesscom-ratings/"><b>Paper and converter</b></a> ·
+  <a href="https://elo.lichessneo.com/"><b>Paper and converter</b></a> ·
   <a href="#the-answer">The answer</a> ·
   <a href="#the-model">The model</a> ·
   <a href="#use-the-table">Use the table</a> ·
@@ -25,7 +25,7 @@
   <a href="#cite">Cite</a>
 </p>
 
-<a href="https://theophile-wallez.github.io/lichess-chesscom-ratings/"><img src="docs/figures/hero.png" alt="The paper's converter: a Lichess blitz rating of 1500 is about 1,095 on Chess.com"></a>
+<a href="https://elo.lichessneo.com/"><img src="docs/figures/hero.png" alt="The paper's converter: a Lichess blitz rating of 1500 is about 1,095 on Chess.com"></a>
 
 ## The answer
 
@@ -126,7 +126,7 @@ w_i \;=\; \Pr(z_i = 1 \mid x_i, y_i, g_i) \;=\; \frac{\pi_{g_i}\, \sigma(x_i)^{-
 **The table.** Every 50 points, $f(r)$ and $s(r)$, half the interquartile range of the gaps $y_i - f(x_i)$ of the
 pairs within 100 points of $r$, each weighted by $w_i$. A 100-draw bootstrap gives the curve's 95% band.
 
-The [paper](https://theophile-wallez.github.io/lichess-chesscom-ratings/#model) writes it all out. One caveat: the
+The [paper](https://elo.lichessneo.com/#model) writes it all out. One caveat: the
 curve estimates $\mathbb E[y \mid x]$, so read backward it doesn't give a Chess.com rating's Lichess equivalent.
 
 ## Speed by speed
@@ -169,7 +169,7 @@ $\sigma$ (68.3% for the normal), 0.35% beyond three (0.27%).
 
 ![The weighted standardized gaps against the standard normal density](docs/figures/residuals.png)
 
-The paper's [limits](https://theophile-wallez.github.io/lichess-chesscom-ratings/#limits) say what this sample can't
+The paper's [limits](https://elo.lichessneo.com/#limits) say what this sample can't
 tell: who plays on both sites, and who links their accounts, isn't everyone.
 
 ## Use the table
@@ -242,7 +242,7 @@ The code is under the [MIT license](LICENSE), the data under
   author = {Wallez, Th{\'e}ophile},
   title  = {What is a Lichess rating worth on Chess.com? An empirical conversion},
   year   = {2026},
-  url    = {https://theophile-wallez.github.io/lichess-chesscom-ratings/},
+  url    = {https://elo.lichessneo.com/},
   note   = {Version 1.0.0}
 }
 ```
