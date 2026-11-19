@@ -42,11 +42,37 @@ nav.top {
   background: color-mix(in srgb, var(--surface-0) 82%, transparent);
   border-bottom: 1px solid var(--grid); margin: 0 -24px; padding: 0 24px;
 }
-nav.top .wide { display: flex; align-items: center; gap: 22px; height: 52px; overflow-x: auto; scrollbar-width: none; }
+/* The brand and the GitHub link stay put; the section links scroll between them. */
+nav.top .wide { display: flex; align-items: center; gap: 22px; height: 52px; }
 nav.top a { color: var(--text-secondary); text-decoration: none; font-size: 14px; white-space: nowrap; }
 nav.top a:hover { color: var(--text-primary); }
-nav.top .brand { color: var(--text-primary); font-weight: 650; margin-right: auto; display: inline-flex; align-items: center; gap: 9px; }
+nav.top .brand { color: var(--text-primary); font-weight: 650; display: inline-flex; align-items: center; gap: 9px; flex: none; }
+.nav-links { flex: 1; min-width: 0; display: flex; align-items: center; gap: 18px; overflow-x: auto; scrollbar-width: none; }
+.nav-links::-webkit-scrollbar { display: none; }
+/* Auto margins center the links while they fit, and fall to 0 once they scroll. */
+.nav-links a:first-child { margin-left: auto; }
+.nav-links a:last-child { margin-right: auto; }
+/* Once they no longer fit, they fade out at the right, with room to scroll the last one clear. */
+@media (max-width: 1180px) {
+  .nav-links { padding-right: 24px; mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); }
+}
 nav.top .brand img { width: 24px; height: 24px; border-radius: 22%; flex: none; }
+
+/* The main repository's GitHub link, with its star count read by showStars (app.js). */
+nav.top .star-link {
+  flex: none; display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 5px 0 11px;
+  border-radius: 9px; color: var(--text-secondary); font-weight: 500;
+  box-shadow: inset 0 0 0 1px var(--grid); transition: color 0.2s, background-color 0.2s;
+}
+nav.top .star-link:hover { color: var(--text-primary); background: color-mix(in srgb, #fff 5%, transparent); }
+nav.top .star-link > svg { flex: none; }
+.star-link__count {
+  display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 8px 0 7px;
+  border-radius: 6px; background: var(--surface-2); color: var(--text-primary);
+}
+.star-link__count svg { flex: none; color: #f5c451; }
+/* Room for three digits from the first paint: the bar doesn't move when the count arrives. */
+.star-link__count b { display: inline-block; min-width: 3ch; text-align: center; font-variant-numeric: tabular-nums; }
 
 .hero { padding: 72px 0 28px; }
 .kicker { color: var(--text-muted); font-size: 13.5px; letter-spacing: 0.06em; text-transform: uppercase; margin: 0 0 12px; }
@@ -178,6 +204,9 @@ footer { margin-top: 96px; padding-top: 24px; border-top: 1px solid var(--grid);
 @media (max-width: 520px) {
   .page { padding: 0 16px 72px; }
   nav.top { margin: 0 -16px; padding: 0 16px; }
+  nav.top .wide { gap: 14px; }
+  .nav-links { gap: 14px; }
+  .star-link__label { display: none; }
   .converter .controls, .converter .answer { padding: 18px; }
   .segmented { display: grid; width: 100%; }
   .segmented button { padding: 7px 4px; font-size: 13px; gap: 5px; }

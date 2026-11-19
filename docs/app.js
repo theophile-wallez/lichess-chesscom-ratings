@@ -861,4 +861,16 @@ async function main() {
   else window.addEventListener('load', math);
 }
 
+// The top bar's GitHub link shows the main repository's stars; without them
+// (offline, rate-limited) the star shows alone.
+async function showStars() {
+  const figure = document.querySelector('.star-link__count b');
+  if (!figure) return;
+  const response = await fetch('https://api.github.com/repos/theophile-wallez/LichessNeo', { headers: { Accept: 'application/vnd.github+json' } });
+  if (!response.ok) return;
+  const data = await response.json();
+  if (typeof data?.stargazers_count === 'number') figure.textContent = nf.format(data.stargazers_count);
+}
+
+showStars().catch(() => {});
 main();
